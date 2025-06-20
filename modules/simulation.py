@@ -9,6 +9,7 @@ import random
 
 # Local imports
 from .config import *
+from .visualization import *
 
 
 ##### FUNCTIONS DEFINITION #####
@@ -110,7 +111,41 @@ def pid_control(kp, ki, kd, target, inputs, prev_integral_error, prev_error, dt)
     return torque, integral_error, error
 
 
-def get_simulated_data(input_params, target, t_max, t_samples):
+def get_pid_gains(input_params, target, t_max, t_samples):
+
+    kp_values = np.linspace(5, 50, 10)
+    ki_values = np.linspace(0, 5, 5)
+    kd_values = np.linspace(0, 10, 5)
+
+    min_error = float('inf')
+    best_gains = (0, 0, 0)
+
+    # Estado inicial
+    theta_init = random.uniform(-0.2, 0.2)
+    vel_init = random.uniform(-0.5, 0.5)
+    init_conditions = [theta_init, vel_init]
+
+    for kp in kp_values:
+        for ki in ki_values:
+            for kd in kd_values:
+                #t, salida = simular_pendulo(Kp, Ki, Kd)
+                pid_gains = [kp, ki, kd]
+                data = get_simulated_data(input_params, target, init_conditions, pid_gains, t_max , t_samples, )
+                #mse = mean_squared_error([setpoint] * len(salida), salida)
+                sim_theta = data['theta']
+                current_error = np.mean((sim_theta - target)**2) # Mean squared error
+    
+                if current_error < min_error:
+                    min_error = current_error
+                    best_gains = pid_gains.copy()
+    
+    print(f"Mejor combinación PID: Kp={best_gains[0]:.2f}, Ki={best_gains[1]:.2f}, Kd={best_gains[2]:.2f}")
+    print(f"Error cuadrático medio: {min_error:.5f}")
+    
+    return best_gains, min_error
+
+
+def get_simulated_data(input_params, target, init_conditions, pid_gains, t_max, t_samples):
     """
     Simula el péndulo invertido con controlador PID paso a paso y genera un dataset.
 
@@ -133,13 +168,16 @@ def get_simulated_data(input_params, target, t_max, t_samples):
     dt = t_max / (t_samples - 1)
     t = np.linspace(0, t_max, t_samples)
 
-    # Estado inicial
-    theta = random.uniform(-0.2, 0.2)
-    vel = random.uniform(-0.5, 0.5)
+    # Initial Conditions
+    theta, vel = init_conditions
 
     # Variables para el PID
     integral_error = 0.0
     prev_error = 0.0 
+
+    kp = pid_gains[0]
+    ki = pid_gains[1]
+    kd = pid_gains[2]
 
     # Listas para almacenar resultados
     theta_list = []
@@ -150,14 +188,17 @@ def get_simulated_data(input_params, target, t_max, t_samples):
     for i in range(t_samples):
         # Calcular torque de control con PID
         torque, integral_error, prev_error = pid_control(
-            PID_KP, PID_KI, PID_KD, target, theta, integral_error, prev_error, dt
+            kp, ki, kd, target, theta, integral_error, prev_error, dt
         )
 
         # Guardar datos
         theta_list.append(theta)
         vel_list.append(vel)
-        acc_list.append(acc)
         torque_list.append(torque)
+        if i == 0:
+            acc_list.append(0)
+        else:
+            acc_list.append(acc)
 
         # Resolver dinámica del sistema en un paso pequeño
         S_0 = [theta, vel]
@@ -178,3 +219,70 @@ def get_simulated_data(input_params, target, t_max, t_samples):
 
     return dataset
 
+
+def generate_dataset(n_simulations, input_params, t_max, t_samples, target_range=(-0.2, 0.2)):
+    """
+    Genera múltiples datasets de simulación del péndulo invertido.
+
+    Parámetros:
+        n_simulations (int): Número de simulaciones a realizar
+        input_params (list): Parámetros físicos del sistema
+        t_max (float): Tiempo total de cada simulación
+        t_samples (int): Número de muestras por simulación
+        target_range (tuple): Rango de valores objetivo (setpoint) para el PID
+
+    Retorna:
+        lista_datasets (list): Lista de diccionarios con los datos de cada simulación
+    """
+    dataset = []
+
+    for _ in range(n_simulations):
+        target = random.uniform(*target_range)
+        sim_data = get_simulated_data(input_params, target, t_max, t_samples)
+        #sim_data['target'] = target
+        dataset.append(sim_data)
+
+    return dataset
+
+
+########## TESTS
+
+def test_solve_inv_pendulum_model():
+    # Parámetros físicos: m, l, g, B, f_ext
+    input_params = [1.0, 1.0, 9.81, 0.1, 0.0]  # masa, largo, gravedad, fricción, fuerza externa
+
+    # Torque de prueba (constante)
+    torque = 0.5
+
+    # Condiciones iniciales: ángulo y velocidad angular
+    initial_state = [0.1, 0.0]  # 0.1 rad, 0 rad/s
+
+    # Tiempo de simulación
+    t_start = 0
+    t_stop = 1
+    t_samples = 100
+
+    # Ejecutar simulación
+    t, theta, vel, acc = solve_inv_pendulum_model(input_params, torque, initial_state, t_start, t_stop, t_samples)
+
+    #print("t: ", t)
+    #print("theta: ", theta)
+    #print("vel: ", vel)
+    #print("acc: ", acc)
+
+    model_solutions = {
+        "theta" : theta,
+        "vel" : vel,
+        "acc" : acc
+    }
+
+    create_multi_y_graph(
+        x_values = t,
+        x_title = "Tiempo",
+        y_values_dict = model_solutions,
+        plot_type = "scatter",
+        show_plot = True,
+        graph_title = "Inv Pendulum Model",
+        image_name = "inv_pendulum_model_test",
+        image_path = RUN_AREA,
+    )
