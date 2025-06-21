@@ -1,17 +1,15 @@
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import random
+##### IMPORTS #####
 
-# Importar funciones locales
+# Third party imports
+
+# Built-in imports
+
+# Local imports
 from modules.config import *
 import modules.simulation as sim
-
 
 
 ##### MAIN EXECUTION #####
 
 # Generates dataset of 10 simulations
-sim.generate_dataset(
-    n_sims = 10
-)
+sim.generate_dataset(n_sims = 10)
