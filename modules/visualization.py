@@ -51,8 +51,12 @@ def create_simple_graph(
     match plot_type:
         case "scatter":
             plt.scatter(x_values, y_values)
-        case _:
+        case "plot":
             plt.plot(x_values, y_values)
+        case _:
+            print(
+                "-W-: For 'create_multi_y_graph' attribute 'plot_type' use: scatter or plot"
+            )
 
     # Annotate each point with k and b values
     if len(annotate_values) == 2:
