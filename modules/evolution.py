@@ -3,60 +3,235 @@
 
 # Third party imports
 import numpy as np
-
+from deap import creator, base, tools, algorithms
+import random
+import pandas as pd
+import matplotlib.pyplot as plt
+from functools import partial
 
 # Local imports
 from .config import *
 from .network import *
+from .simulation import *
 
 
 ##### FUNCTIONS DEFINITION #####
 
-def normalize_dataset(dataset):
-    normalized = {}
-    for key, value in dataset.items():
-        if isinstance(value, np.ndarray) and np.issubdtype(value.dtype, np.number):
-            min_val = value.min()
-            max_val = value.max()
-            if max_val - min_val != 0:
-                normalized[key] = (value - min_val) / (max_val - min_val)
-            else:
-                normalized[key] = np.zeros_like(value)
+toolbox = base.Toolbox()
+
+
+def count_weights(
+        num_input_neurons,
+        num_hidden_neurons,
+        num_output_neurons
+        ):
+    """
+    Function:
+        Finds the total number of chromosomes.
+
+    Parameters:
+        NUM_HIDDEN_NEURONS (list): Number of neurons of the dense layer.
+        NUM_INPUT_NEURONS (int): Number of neurons of the input layer.
+        NUM_OUTPUT_NEURONS (int): Number of neurons of the output layer.
+
+    Returns:
+        total_weights (int): Total number of weights, which represents the
+                             total number of chromosomes.
+    """
+    layer_sizes = [num_input_neurons] + num_hidden_neurons + [num_output_neurons]
+    total_weights = 0
+
+    for i in range(len(layer_sizes) - 1):
+        w = layer_sizes[i] * layer_sizes[i + 1]  # pesos entre capas
+        b = layer_sizes[i + 1]                   # bias en capa siguiente
+        total_weights += w + b
+
+    return total_weights
+
+
+def normalize(df):
+    """
+    Normalize numeric columns in a pandas DataFrame to range [0, 1].
+
+    Parameters:
+        df (pd.DataFrame): Input DataFrame.
+
+    Returns:
+        pd.DataFrame: A new DataFrame with normalized numeric columns.
+    """
+    normalized_df = df.copy()
+
+    for column in df.select_dtypes(include=[np.number]).columns:
+        min_val = df[column].min()
+        max_val = df[column].max()
+        if max_val - min_val != 0:
+            normalized_df[column] = (df[column] - min_val) / (max_val - min_val)
         else:
-            normalized[key] = value
-    return normalized
+            normalized_df[column] = 0.0  # all values are the same
 
-def fitness_function(individual,
-                     model,
-                     dataset
-                     ):
-    
+    return normalized_df
+
+
+def evaluation_function(
+        individual,
+        model,
+        dataset_df
+        ):
+
     # Creates the neural network
-    set_model_weights(individual, model)
+    shapes = get_model_shapes(
+        NUM_HIDDEN_NEURONS,
+        NUM_INPUT_NEURONS,
+        NUM_OUTPUT_NEURONS
+    )
+    set_model_weights(model, individual, shapes)
 
-    dataset_torque = np.array(dataset["torque"])
-    min_torque = dataset_torque.min()
-    max_torque = dataset_torque.max()
+    torque_array = dataset_df["torque"].to_numpy()
+    min_torque = torque_array.min()
+    max_torque = torque_array.max()
 
     # Normalize the dataset
-    norm_dataset = normalize_dataset(dataset)
+    norm_dataset = normalize(dataset_df)
 
     # Extract angle and velocity
-    theta = np.array(norm_dataset["theta"])
-    vel = np.array(norm_dataset["vel"])
+    theta_norm = norm_dataset["theta"].to_numpy()
+    vel_norm = norm_dataset["vel"].to_numpy()
 
     # Predict torque with the neural network
-    model_input = np.column_stack((theta, vel))
+    model_input = np.column_stack((theta_norm, vel_norm))
     norm_network_torque = model.predict(model_input)
 
     # Denormalize the torque
     network_torque = norm_network_torque * (max_torque - min_torque) + min_torque
 
     # Calculate the fitness of the individual
-    fitness = np.mean((np.array(dataset_torque) - np.array(network_torque)) ** 2)
+    fitness = np.mean((np.array(torque_array) - np.array(network_torque)) ** 2)
 
-    return fitness
+    return (fitness,)
+
 
 def run_evolutionary_algorithm():
+    """
+    Function:
+        Runs a multi-objective evolutionary algorithm using the DEAP library.
+
+        This function sets up and executes an evolutionary process to optimize two 
+        conflicting objectives (displacement and acceleration). The function registers 
+        genetic operators, initializes the population, executes the evolution, and 
+        visualizes the results.
+
+    Parameters:
+        None
+
+    Returns:
+        None
+    """
     
+    print("\n--> Running the Evolutionary Algorithm ...")
+
+    # Negative weights for minimization
+    pesos_fitness = (
+        -1.0,
+    )
+
+    n_genes = count_weights(
+        NUM_INPUT_NEURONS,
+        NUM_HIDDEN_NEURONS,
+        NUM_OUTPUT_NEURONS
+    )
+
+    # Fitness function definition
+    creator.create("fitness_function", base.Fitness, weights=pesos_fitness)
+    # Individual definition
+    creator.create("individual", list, fitness=creator.fitness_function, typecode="f")
+
+    # Alleles
+    toolbox.register("gene", random.uniform, GENE_RANGE[0], GENE_RANGE[1])
+
+    # Individual generator
+    toolbox.register(
+        "individual_generation",
+        tools.initRepeat,
+        creator.individual,
+        toolbox.gene,
+        n_genes,
+    )
+
+    # Population generator
+    toolbox.register(
+        "population", tools.initRepeat, list, toolbox.individual_generation
+    )
+
+
+    MODEL = build_model(
+        NUM_HIDDEN_NEURONS,
+        NUM_INPUT_NEURONS,
+        NUM_OUTPUT_NEURONS
+        )
+
+    _, DATASET_DF = generate_dataset(n_sims = 10)
+
+    toolbox.register("evaluate", partial(evaluation_function, model=MODEL, dataset_df=DATASET_DF))
+    # Evolution operators
+    toolbox.register("select", tools.selTournament, tournsize=2)
+    toolbox.register("mate", tools.cxBlend, alpha=ALPHA)
+    toolbox.register(
+        "mutate", tools.mutGaussian, mu=MU, sigma=SIGMA, indpb=0.2
+    )
+
+    if DEBUG == True:
+        # Test for the population and individuals generation
+        population_test = toolbox.population(n=POPULATION_SIZE)
+        individual_test = toolbox.individual_generation()
+        print("Individuo: ", individual_test)
+        print("Ejemplo de poblacion: ", population_test)
+
+    # Statistics on the general fitness of the population
+    stats = tools.Statistics(lambda ind: ind.fitness.values)
+    stats.register("avg", np.mean)  # Generation 'Average'
+    stats.register("std", np.std)  # Individuals 'Standard Deviation'
+    stats.register("min", np.min)  # 'Min Fitness' of the generation
+    stats.register("max", np.max)  # 'Max Fitness' of the generation
+
+    hof = tools.HallOfFame(1)  # Hall of Fame
+    popu = toolbox.population(n=POPULATION_SIZE)  # Defines the initial population
+    
+    # Runs the Evolutionary Algorithm
+    popu, logbook = algorithms.eaMuPlusLambda(
+        population=popu,
+        toolbox=toolbox,
+        mu=PARENT_POPU_SIZE,
+        lambda_=CHILD_POPU_SIZE,
+        cxpb=MATE_CHANCE,
+        mutpb=MUTATE_CHANCE,
+        ngen=NUM_GENERATIONS,
+        stats=stats,
+        halloffame=hof,
+        verbose=VERBOSE,
+    )
+
+    print()
+    print()
+    best_ind = hof[0]
+    print("Best individual:", best_ind)
+    print("Fitness:", best_ind.fitness.values)
+
+    log_df = pd.DataFrame(logbook)
+
+    # View last generation summary
+    print()
+    print()
+    print(log_df.tail(1))
+
+    # Plot fitness across generations
+    plt.figure()
+    plt.plot(log_df["gen"], log_df["min"], label="Min Fitness")
+    plt.plot(log_df["gen"], log_df["avg"], label="Avg Fitness")
+    plt.xlabel("Generation")
+    plt.ylabel("Fitness")
+    plt.title("Fitness over Generations")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
     print("")

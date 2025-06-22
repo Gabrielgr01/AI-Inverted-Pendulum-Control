@@ -19,6 +19,10 @@ DATA_DIR_PATH = str(RUN_AREA) + f"\\{DATA_DIR_NAME}"
 DATASET_CSV_NAME = "dataset.csv"
 DATASET_CSV_PATH = str(DATA_DIR_PATH) + f"\\{DATASET_CSV_NAME}"
 
+# General
+VERBOSE = False  
+DEBUG = False    
+
 # PID Gains
 PID_KP = 50 # Proportional Gain
 PID_KI = 5  # Integral Gain
@@ -36,18 +40,21 @@ TARGET_ANGLE = 0 # [rad] Target angle for the pendulum control
 ##### HYPERPARAMETERS #####
 
 # Neural Network
-NUM_INPUT_NEURONS = 2   # 
-NUM_OUTPUT_NEURONS = 1  # 
-NUM_HIDDEN_LAYERS = 1   # 
-NUM_HIDDEN_NEURONS = 5  #
+NUM_INPUT_NEURONS = 2   # Number of neurons of the input layer
+NUM_OUTPUT_NEURONS = 1  # Number of neurons of the output put layer
 
-shapes = [
-    (2, 5),  # Weights of from the input layer towards the hidden layer
-    (5,),    # Bias of the hidden layer
-    (5, 1),  # Weights of from the hidden layer towards the output layer
-    (1,)     # Bias of the output layer
-]
+# List of neurons of each hidden layer. Example: [5, 5] represents two
+# hidden layers of 5 neurons each.
+NUM_HIDDEN_NEURONS = [5, 5]
 
 # Evolutionary Algorithm
-POPULATION_SIZE = 50    #
-NUM_GENERATIONS = 100   #
+POPULATION_SIZE = 100    #
+NUM_GENERATIONS = 30   #
+PARENT_POPU_SIZE = 25
+CHILD_POPU_SIZE = 25
+MATE_CHANCE = 0.6
+MUTATE_CHANCE = 0.4
+MU = 0.0
+GENE_RANGE = [-1, 1]
+ALPHA = 1.2
+SIGMA = (GENE_RANGE[1] - GENE_RANGE[0]) * 0.05
