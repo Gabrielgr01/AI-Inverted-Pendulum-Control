@@ -13,13 +13,14 @@ from functools import partial
 from .config import *
 from .network import *
 from .simulation import *
+from .visualization import *
 
 
 ##### FUNCTIONS DEFINITION #####
 
 toolbox = base.Toolbox()
 
-
+### Not used
 def count_weights(
         num_input_neurons,
         num_hidden_neurons,
@@ -47,17 +48,27 @@ def count_weights(
         total_weights += w + b
 
     return total_weights
+###
+
+def get_model_num_weights(net_model):
+    weights = net_model.get_weights()
+    total_weights_num = 0
+    for weight in weights:
+        total_weights_num += weight.size
+        #print("size: ", weight.size)
+    return total_weights_num
 
 
 def normalize(df):
     """
-    Normalize numeric columns in a pandas DataFrame to range [0, 1].
+    Function:
+        Normalize numeric columns in a pandas DataFrame to range [0, 1].
 
     Parameters:
         df (pd.DataFrame): Input DataFrame.
 
     Returns:
-        pd.DataFrame: A new DataFrame with normalized numeric columns.
+        normalized_df (pd.DataFrame): A new DataFrame with normalized numeric columns.
     """
     normalized_df = df.copy()
 
@@ -78,13 +89,8 @@ def evaluation_function(
         dataset_df
         ):
 
-    # Creates the neural network
-    shapes = get_model_shapes(
-        NUM_HIDDEN_NEURONS,
-        NUM_INPUT_NEURONS,
-        NUM_OUTPUT_NEURONS
-    )
-    set_model_weights(model, individual, shapes)
+    # Sets the model with the weights defined by the individual
+    set_model_weights(model, individual)
 
     torque_array = dataset_df["torque"].to_numpy()
     min_torque = torque_array.min()
@@ -110,7 +116,7 @@ def evaluation_function(
     return (fitness,)
 
 
-def run_evolutionary_algorithm():
+def run_evolutionary_algorithm(net_model, dataset_df):
     """
     Function:
         Runs a multi-objective evolutionary algorithm using the DEAP library.
@@ -124,21 +130,16 @@ def run_evolutionary_algorithm():
         None
 
     Returns:
-        None
+        best_ind (list): List with the trained weights of the neural network.
+        best_ind_fitness (float) : Fitness value of the 'best_ind'.
     """
     
-    print("\n--> Running the Evolutionary Algorithm ...")
+    print("\n--> Running the Evolutionary Algorithm ...\n")
 
     # Negative weights for minimization
-    pesos_fitness = (
-        -1.0,
-    )
+    pesos_fitness = (-1.0,)
 
-    n_genes = count_weights(
-        NUM_INPUT_NEURONS,
-        NUM_HIDDEN_NEURONS,
-        NUM_OUTPUT_NEURONS
-    )
+    n_genes = get_model_num_weights(net_model)
 
     # Fitness function definition
     creator.create("fitness_function", base.Fitness, weights=pesos_fitness)
@@ -162,16 +163,7 @@ def run_evolutionary_algorithm():
         "population", tools.initRepeat, list, toolbox.individual_generation
     )
 
-
-    MODEL = build_model(
-        NUM_HIDDEN_NEURONS,
-        NUM_INPUT_NEURONS,
-        NUM_OUTPUT_NEURONS
-        )
-
-    _, DATASET_DF = generate_dataset(n_sims = 10)
-
-    toolbox.register("evaluate", partial(evaluation_function, model=MODEL, dataset_df=DATASET_DF))
+    toolbox.register("evaluate", partial(evaluation_function, model=net_model, dataset_df=dataset_df))
     # Evolution operators
     toolbox.register("select", tools.selTournament, tournsize=2)
     toolbox.register("mate", tools.cxBlend, alpha=ALPHA)
@@ -210,28 +202,30 @@ def run_evolutionary_algorithm():
         verbose=VERBOSE,
     )
 
-    print()
-    print()
     best_ind = hof[0]
-    print("Best individual:", best_ind)
-    print("Fitness:", best_ind.fitness.values)
-
+    best_ind_fitness = best_ind.fitness.values
     log_df = pd.DataFrame(logbook)
-
+    
     # View last generation summary
     print()
     print()
     print(log_df.tail(1))
+    print("")
 
     # Plot fitness across generations
-    plt.figure()
-    plt.plot(log_df["gen"], log_df["min"], label="Min Fitness")
-    plt.plot(log_df["gen"], log_df["avg"], label="Avg Fitness")
-    plt.xlabel("Generation")
-    plt.ylabel("Fitness")
-    plt.title("Fitness over Generations")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    y_fitness_dict = {
+        "Min Fitness" :  log_df["min"],
+        "Avg Fitness" : log_df["avg"]
+    }
+    create_multi_y_graph(
+        x_values = log_df["gen"],
+        x_title = "Generation",
+        y_values_dict = y_fitness_dict,
+        plot_type = "plot",
+        show_plot = True,
+        graph_title = "Fitness over Generations",
+        image_name = "evolution_fitness",
+        image_path = RUN_AREA
+    )
 
-    print("")
+    return best_ind, best_ind_fitness

@@ -25,7 +25,7 @@ def get_inv_pendulum_acceleration(input_params, theta, vel, torque_control):
     f_ext = input_params[4]
     
     if torque_control == 0:
-        acc = - f_ext*(1/m*l) + np.sin(theta)*(g/l) - vel*(B/m*l**2)
+        acc = + f_ext*(1/m*l) - np.sin(theta)*(g/l) + vel*(B/m*l**2)
     else:
         acc = torque_control*(1/m*l**2) - f_ext*(1/m*l) - np.sin(theta)*(g/l) - vel*(B/m*l**2)
     return acc
@@ -265,14 +265,14 @@ def generate_dataset(n_sims, backup = False):
         df_dataset (pd.DataFrame): The dataset
     """
     
-    print("--> Generating Dataset ...")
+    print("\n--> Generating Dataset ...")
     
     data_path = DATA_DIR_PATH
     input_params = DYNAMIC_INPUT_PARAMS
     target = TARGET_ANGLE
     pid_gains = [PID_KP, PID_KI, PID_KD]
-    t_stop = 10
-    t_samples = 100
+    t_stop = SIM_T_STOP
+    t_samples = SIM_T_SAMPLES
     
     create_directory(data_path, backup)
     
@@ -335,9 +335,15 @@ def generate_dataset(n_sims, backup = False):
     df_dataset = pd.concat(df_list, ignore_index=True)
     file_path = DATASET_CSV_PATH
     df_dataset.to_csv(file_path, index=False)
-    print(f"\nDataset saved as: '{file_path}'\n")
+    print(f"\nDataset saved as: '{file_path}'")
     
     return data_path, df_dataset
+
+
+def load_dataset(csv_path):
+    print(f"\n--> Loading dataset from .csv file:\n{csv_path}\n")
+    dataset_df = pd.read_csv(csv_path)
+    return dataset_df
 
 
 ##### TEST FUNCTIONS (For Developers) #####
@@ -373,9 +379,9 @@ def test_solve_inv_pendulum_model():
 
 def test_pid_control():
     # Random values for testing
-    kp = 2.0
-    ki = 0.5
-    kd = 1.0
+    kp = PID_KP
+    ki = PID_KI
+    kd = PID_KD
     dt = 0.1
     target = 0.0
     input_val = 0.8
@@ -437,4 +443,3 @@ def test_get_simulated_data():
         image_name = f"all_model_simulation_test",
         image_path = RUN_AREA,
     )
-    
