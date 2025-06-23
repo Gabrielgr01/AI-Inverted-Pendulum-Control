@@ -64,11 +64,11 @@ def build_model(
     model = Sequential()
 
     # First layer
-    model.add(Dense(num_hidden_neurons[0], input_shape=(num_input_neurons,), activation='tanh'))
+    model.add(Dense(num_hidden_neurons[0], input_shape=(num_input_neurons,), activation='relu'))
 
     # Hidden layers
     for units in num_hidden_neurons[1:]:
-        model.add(Dense(units, activation='tanh'))
+        model.add(Dense(units, activation='rleu'))
 
     # Output layer
     model.add(Dense(num_output_neurons, activation='linear'))

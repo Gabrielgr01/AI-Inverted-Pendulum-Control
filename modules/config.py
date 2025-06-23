@@ -40,21 +40,21 @@ TARGET_ANGLE = 0 # [rad] Target angle for the pendulum control
 ##### HYPERPARAMETERS #####
 
 # Neural Network
-NUM_INPUT_NEURONS = 2   # Number of neurons of the input layer
+NUM_INPUT_NEURONS = 3   # Number of neurons of the input layer
 NUM_OUTPUT_NEURONS = 1  # Number of neurons of the output put layer
 
 # List of neurons of each hidden layer. Example: [5, 5] represents two
 # hidden layers of 5 neurons each.
-NUM_HIDDEN_NEURONS = [5, 5]
+NUM_HIDDEN_NEURONS = [5]
 
 # Evolutionary Algorithm
-POPULATION_SIZE = 100    #
-NUM_GENERATIONS = 30   #
-PARENT_POPU_SIZE = 25
+POPULATION_SIZE = 100  # Population size
+NUM_GENERATIONS = 30  # Number generations
+PARENT_POPU_SIZE = 25  # Number of selected individuals
 CHILD_POPU_SIZE = 25
-MATE_CHANCE = 0.6
-MUTATE_CHANCE = 0.4
+MATE_CHANCE = 0.7
+MUTATE_CHANCE = 0.3
 MU = 0.0
 GENE_RANGE = [-1, 1]
-ALPHA = 1.2
+ALPHA = 0.5
 SIGMA = (GENE_RANGE[1] - GENE_RANGE[0]) * 0.05

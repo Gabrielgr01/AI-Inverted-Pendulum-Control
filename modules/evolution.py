@@ -49,7 +49,7 @@ def count_weights(
     return total_weights
 
 
-def normalize(df):
+def normalize_df(df):
     """
     Normalize numeric columns in a pandas DataFrame to range [0, 1].
 
@@ -72,6 +72,23 @@ def normalize(df):
     return normalized_df
 
 
+def normalize_arr(array):
+    """
+    Normalize a NumPy array
+
+    Parameters:
+        array (NumPy array): NumPy array to be normalized
+
+    Returns:
+        norm_array (NumPy array): The normalized NumPy array
+    """
+    min_array = array.min()
+    max_array = array.max()
+    norm_array = (array - min_array) / (max_array - min_array)
+
+    return norm_array
+
+
 def evaluation_function(
         individual,
         model,
@@ -91,21 +108,27 @@ def evaluation_function(
     max_torque = torque_array.max()
 
     # Normalize the dataset
-    norm_dataset = normalize(dataset_df)
+    norm_dataset = normalize_df(dataset_df)
 
     # Extract angle and velocity
-    theta_norm = norm_dataset["theta"].to_numpy()
+    theta = dataset_df["theta"].to_numpy()
+    theta_sin = np.sin(theta)
+    theta_cos = np.cos(theta)
     vel_norm = norm_dataset["vel"].to_numpy()
+    norm_theta_sin = normalize_arr(theta_sin)
+    norm_theta_cos = normalize_arr(theta_cos)
+
 
     # Predict torque with the neural network
-    model_input = np.column_stack((theta_norm, vel_norm))
+    model_input = np.column_stack((norm_theta_sin, norm_theta_cos, vel_norm))
     norm_network_torque = model.predict(model_input)
 
     # Denormalize the torque
     network_torque = norm_network_torque * (max_torque - min_torque) + min_torque
 
     # Calculate the fitness of the individual
-    fitness = np.mean((np.array(torque_array) - np.array(network_torque)) ** 2)
+    mse = np.mean((np.array(torque_array) - np.array(network_torque)) ** 2)
+    fitness = np.sqrt(mse)
 
     return (fitness,)
 
