@@ -1,13 +1,11 @@
 ##### IMPORTS #####
 
-
 # Third party imports
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.models import load_model as keras_load_model
 from tensorflow.keras.layers import Dense
 import numpy as np
 import pandas as pd
-
 
 # Local imports
 from .config import *
