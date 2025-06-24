@@ -42,9 +42,7 @@ def create_directory(full_path, backup=False, overwrite=True):
                 os.makedirs(full_path)
         else:
             os.makedirs(full_path)
-                
-    
-    
+  
 
 def print_files_tree_short():
     """
@@ -74,6 +72,7 @@ C:.
         visualization.py
         __init__.py
           """)
+
 
 def process_df(operation, df, title, max_val, min_val, difference):
     """
@@ -121,3 +120,29 @@ def process_df(operation, df, title, max_val, min_val, difference):
         print(norm_df)
 
     return norm_df
+
+
+def save_norm_config(max_vals, min_vals):
+    print("\n--> Saving normalization data ...")
+    
+    max_config_path = MODEL_CONFIG_PATH_LIST[0]
+    min_config_path = MODEL_CONFIG_PATH_LIST[1]
+    
+    max_vals = max_vals.to_frame().T
+    min_vals = min_vals.to_frame().T
+    max_vals.to_csv(max_config_path, index=False)
+    min_vals.to_csv(min_config_path, index=False)
+    
+    print("Normalization configs created: ")
+    print(MODEL_CONFIG_PATH_LIST[0])
+    print(MODEL_CONFIG_PATH_LIST[1], "\n")
+    
+
+def get_norm_config():
+    max_df_recuperado = pd.read_csv(MODEL_CONFIG_PATH_LIST[0])
+    min_df_recuperado = pd.read_csv(MODEL_CONFIG_PATH_LIST[1])
+    max_df_vals = max_df_recuperado.iloc[0]
+    min_df_vals = min_df_recuperado.iloc[0]
+    df_differences = max_df_vals - min_df_vals
+    
+    return max_df_vals, min_df_vals, df_differences
