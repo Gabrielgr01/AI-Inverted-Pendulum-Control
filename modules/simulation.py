@@ -166,7 +166,7 @@ def pid_control(kp, ki, kd, target, inputs, prev_integral_error, prev_error, dt)
     return output, integral_error, error
 
 
-def get_pid_gains(input_params, init_conditions, target = 0, t_max = 5, t_samples = 501):
+def get_pid_gains(input_params, init_conditions, target = 0, t_max = 5, t_samples = 300):
     """
     Function:
         Plots a series of graphs with the PID behavior for several gain combinations.
@@ -256,6 +256,7 @@ def get_simulated_data(input_params, target, init_conditions, pid_gains, t_max, 
             'acc': angular acceleration (array)
             'torque': control torque (array)
     """
+    global PERTURBANCE_SIM_COUNT
 
     dt = t_max / (t_samples - 1)
     t = np.linspace(0, t_max, t_samples)
@@ -275,9 +276,10 @@ def get_simulated_data(input_params, target, init_conditions, pid_gains, t_max, 
     vel_list = []
     acc_list = []
     torque_list = []
-
-    if perturbance == True:
+    
+    if perturbance == True and PERTURBANCE_SIM_COUNT < PERTURBANCE_SIM_LIMIT:
         t_impulse = random.uniform(0.0, t_max/2)
+        PERTURBANCE_SIM_COUNT += 1
     else:
         t_impulse = t_max + 1
 
@@ -336,6 +338,7 @@ def get_simulated_data_from_network(input_params, init_conditions, model, t_max,
             'acc': angular acceleration (array)
             'torque': control torque (array)
     """
+    global PERTURBANCE_SIM_COUNT
     
     dt = t_max / (t_samples - 1)
     t = np.linspace(0, t_max, t_samples)
@@ -349,8 +352,9 @@ def get_simulated_data_from_network(input_params, init_conditions, model, t_max,
     acc_list = []
     torque_list = []
 
-    if perturbance == True:
+    if perturbance == True and PERTURBANCE_SIM_COUNT < PERTURBANCE_SIM_LIMIT:
         t_impulse = random.uniform(0.0, t_max/2)
+        PERTURBANCE_SIM_COUNT += 1
     else:
         t_impulse = t_max + 1
 
@@ -407,6 +411,7 @@ def generate_dataset(n_sims, data_path, option, model=None, backup=False):
         data_path (str): Full path where the dataset files were saved.
         norm_df_dataset (pd.DataFrame): Normalized dataset.
     """
+    global PERTURBANCE_SIM_COUNT
     
     if option == "PID":
         print("\n--> Generating Dataset ...")
@@ -416,6 +421,7 @@ def generate_dataset(n_sims, data_path, option, model=None, backup=False):
         print(f"-E-: {option} is not a valid option. Use 'PID' or 'NETWORK'.")
         return 1
     
+    PERTURBANCE_SIM_COUNT = 0
     input_params = DYNAMIC_INPUT_PARAMS
     target = TARGET_ANGLE
     pid_gains = [PID_KP, PID_KI, PID_KD]
