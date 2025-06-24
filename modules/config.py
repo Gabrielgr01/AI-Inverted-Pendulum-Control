@@ -30,7 +30,7 @@ MIN_CONFIG_SAVE_NAME = "min_config.csv"
 MIN_CONFIG_SAVE_PATH = os.path.join(RESULTS_DIR_PATH, MIN_CONFIG_SAVE_NAME) # Config path with min values for normalization.
 MODEL_CONFIG_PATH_LIST = [MAX_CONFIG_SAVE_PATH, MIN_CONFIG_SAVE_PATH]       # List with max_config.csv and min_condig.csv paths.
 
-SIM_T_STOP = 20 # Maximum simulation time
+SIM_T_STOP = 10 # Maximum simulation time
 DT = 0.01       # Intervals length in the simulation
 SIM_T_SAMPLES = int((SIM_T_STOP / DT) + 1) # Num of samples in the simulation.
 PERTURBANCE_SIM_LIMIT = 5   # Max number of simulations with perturbance.
