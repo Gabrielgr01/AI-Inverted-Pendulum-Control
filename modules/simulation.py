@@ -12,6 +12,7 @@ import random
 from .config import *
 from .visualization import *
 from .utils import *
+from .network import *
 
 
 ##### FUNCTIONS DEFINITION #####
@@ -249,7 +250,59 @@ def get_simulated_data(input_params, target, init_conditions, pid_gains, t_max, 
     return sim_data
 
 
-def generate_dataset(n_sims, backup = False):
+def get_simulated_data_from_network(input_params, init_conditions, model, t_max, t_samples):
+    dt = t_max / (t_samples - 1)
+    t = np.linspace(0, t_max, t_samples)
+
+    # Initial Conditions
+    theta, vel = init_conditions
+
+    # Lists to save the results
+    theta_list = []
+    vel_list = []
+    acc_list = []
+    torque_list = []
+
+    for i in range(t_samples):
+        
+        # Simulate model
+        torque = model_predict(model, theta, vel)
+        acc = get_inv_pendulum_acceleration(input_params, theta, vel, torque)
+
+        theta_list.append(theta)
+        vel_list.append(vel)
+        acc_list.append(acc)
+        torque_list.append(torque)
+        
+        # Solve system with small time step
+        S_0 = [theta, vel]
+        _, theta_sol, vel_sol, acc_sol = solve_inv_pendulum_model(input_params, torque, S_0, 0, dt, 2)
+        
+        theta = theta_sol[-1]   # Gets the last calculated theta
+        vel = vel_sol[-1]       # Gets the last calculated velocity
+        acc = acc_sol[-1]       # Gets the last calculated acceleration
+        
+        ## Stop simulation if angle exceeds ±90°
+        #if abs(theta[i]) >= np.pi / 2:
+        #    theta = theta[:i+1]
+        #    vel = vel[:i+1]
+        #    acc = acc[:i+1]
+        #    torque = torque[:i+1]
+        #    t = t[:i+1]
+        #    break
+        
+    sim_data = {
+        't': t,
+        'theta': np.array(theta_list),
+        'vel': np.array(vel_list),
+        'acc': np.array(acc_list),
+        'torque': np.array(torque_list)
+    }
+
+    return sim_data
+
+
+def generate_dataset(n_sims, data_path, option, model=None, backup=False):
     """
     Function:
         Creates a dataset with multiple simulations of the 
@@ -264,17 +317,21 @@ def generate_dataset(n_sims, backup = False):
         data_path (str): Full path where the dataset files were saved
         df_dataset (pd.DataFrame): The dataset
     """
+    if option == "PID":
+        print("\n--> Generating Dataset ...")
+    elif option == "NETWORK":
+        print("\n--> Simulating Network ...")
+    else:
+        print(f"-E-: {option} is not a valid option. Use 'PID' or 'NETWORK'.")
+        return 1
     
-    print("\n--> Generating Dataset ...")
-    
-    data_path = DATA_DIR_PATH
     input_params = DYNAMIC_INPUT_PARAMS
     target = TARGET_ANGLE
     pid_gains = [PID_KP, PID_KI, PID_KD]
     t_stop = SIM_T_STOP
     t_samples = SIM_T_SAMPLES
     
-    create_directory(data_path, backup)
+    create_directory(data_path, backup, overwrite=False)
     
     df_list = [] # List of DataFrames/simulations
     
@@ -284,8 +341,11 @@ def generate_dataset(n_sims, backup = False):
                            random.uniform(-0.5, 0.5)    # velocity [rad/s]
                            ]
         
-        data = get_simulated_data(input_params, target, init_conditions, pid_gains, t_stop, t_samples)
-    
+        if option == "PID":
+            data = get_simulated_data(input_params, target, init_conditions, pid_gains, t_stop, t_samples)
+        elif option == "NETWORK":
+            data = get_simulated_data_from_network(input_params, init_conditions, model, t_stop, t_samples)
+            
         # DataFrame generation (to save as .csv)
         df = pd.DataFrame({
             't': data['t'],
@@ -331,13 +391,32 @@ def generate_dataset(n_sims, backup = False):
             image_path = data_path,
         )
     
-    # Saves data in .csv
+    # Builds full dataframe
     df_dataset = pd.concat(df_list, ignore_index=True)
-    file_path = DATASET_CSV_PATH
-    df_dataset.to_csv(file_path, index=False)
-    print(f"\nDataset saved as: '{file_path}'")
     
-    return data_path, df_dataset
+    # Variables for data normalization
+    max_df_vals = df_dataset.max(axis=0) # Max of each dataset column
+    min_df_vals = df_dataset.min(axis=0) # Min of each dataset column
+    df_differences = max_df_vals - min_df_vals
+    
+    # Saves variables for data normalization into config file
+    save_norm_config(max_df_vals, min_df_vals)
+    
+    # Normalizes dataframe
+    norm_df_dataset = process_df("normalize", df_dataset, "", max_df_vals, min_df_vals, df_differences)
+    
+    # Saves data in .csv
+    if option == "PID":
+        file_path = DATASET_CSV_PATH
+        norm_df_dataset.to_csv(file_path, index=False)
+        print(f"\nDataset saved as: '{file_path}'")
+    elif option == "NETWORK":
+        file_path = NETWORK_SIM_CSV_PATH
+        norm_df_dataset.to_csv(file_path, index=False)
+        print(f"\nNetwork simulation saved as: '{file_path}'")
+    print("")
+    
+    return data_path, norm_df_dataset
 
 
 def load_dataset(csv_path):
@@ -401,7 +480,7 @@ def test_get_pid_gains():
     get_pid_gains(input_params, init_conditions)
 
 
-def test_get_simulated_data():
+def test_get_simulated_data(option):
     input_params = DYNAMIC_INPUT_PARAMS
     initial_state = [0.1, 0.0] # angle [rad], angular velocity [rad/s]
     target = TARGET_ANGLE
@@ -409,7 +488,11 @@ def test_get_simulated_data():
     t_stop = 10
     t_samples = 100
     
-    data = get_simulated_data(input_params, target, initial_state, pid_gains, t_stop, t_samples)    
+    if option == "PID":   
+        data = get_simulated_data(input_params, target, initial_state, pid_gains, t_stop, t_samples)
+    elif option == "NETWORK":
+        model = load_model(MODEL_SAVE_PATH)
+        data = get_simulated_data_from_network(input_params, initial_state, model, t_stop, t_samples)
     
     t = data['t']
     
