@@ -1,11 +1,13 @@
 ##### IMPORTS #####
 
+
 # Third party imports
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.models import load_model as keras_load_model
 from tensorflow.keras.layers import Dense
 import numpy as np
 import pandas as pd
+
 
 # Local imports
 from .config import *
@@ -113,7 +115,7 @@ def set_model_weights(model, weights):
     return model
 
 
-def model_predict(model, theta, vel, config_path_list):
+def model_predict(model, theta, vel):
     """
     Retorna el torque calculado por la red neuronal entrenada.
     
@@ -126,12 +128,8 @@ def model_predict(model, theta, vel, config_path_list):
         torque (float): Valor del torque de control calculado por la red.
     """
     
-    max_df_recuperado = pd.read_csv(config_path_list[0])
-    min_df_recuperado = pd.read_csv(config_path_list[1])
-    max_df_vals = max_df_recuperado.iloc[0]
-    min_df_vals = min_df_recuperado.iloc[0]
-    df_differences = max_df_vals - min_df_vals
-        
+    max_df_vals, min_df_vals, df_differences = get_norm_config()
+
     # Normalizing inputs
     input_df = pd.DataFrame([[theta, vel]], columns=["theta", "vel"])
     input_norm_df = process_df("normalize", input_df, "", max_df_vals, min_df_vals, df_differences)
@@ -147,25 +145,16 @@ def model_predict(model, theta, vel, config_path_list):
     output_norm_df = process_df("denormalize", output_df, "", max_df_vals, min_df_vals, df_differences)
     torque_denorm = output_norm_df["torque"].to_numpy()
 
-    return torque_denorm
+    return float(torque_denorm)
 
 
-def save_model(model, model_save_path, config_path_list, norm_values):
+def save_model(model, model_save_path):
     print ("\n--> Saving model ...\n")
-    
-    max_config_path = config_path_list[0]
-    min_config_path = config_path_list[1]
-    
-    max_df_vals = norm_values[0].to_frame().T
-    min_df_vals = norm_values[1].to_frame().T
-    max_df_vals.to_csv(max_config_path, index=False)
-    min_df_vals.to_csv(min_config_path, index=False)
     
     model.save(model_save_path)
     
-    print("Model and config saved in:\n")
-    print(model_save_path)
-    print(config_path_list, "\n")
+    print("Model saved in:\n")
+    print(model_save_path, "\n")
 
 
 def load_model(MODEL_SAVE_PATH):
