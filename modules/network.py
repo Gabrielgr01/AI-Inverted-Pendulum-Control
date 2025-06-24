@@ -128,11 +128,11 @@ def model_predict(model, theta, vel):
         torque (float): Valor del torque de control calculado por la red.
     """
     
-    max_df_vals, min_df_vals, df_differences = get_norm_config()
+    max_df_vals, min_df_vals = get_norm_config()
 
     # Normalizing inputs
     input_df = pd.DataFrame([[theta, vel]], columns=["theta", "vel"])
-    input_norm_df = process_df("normalize", input_df, "", max_df_vals, min_df_vals, df_differences)
+    input_norm_df = process_df("normalize", input_df, "", max_df_vals, min_df_vals)
     theta_norm = input_norm_df["theta"].to_numpy()
     vel_norm = input_norm_df["vel"].to_numpy()
     model_input = np.column_stack((theta_norm, vel_norm))
@@ -142,7 +142,7 @@ def model_predict(model, theta, vel):
     
     # Denormalizing output
     output_df = pd.DataFrame([[torque]], columns=["torque"])
-    output_norm_df = process_df("denormalize", output_df, "", max_df_vals, min_df_vals, df_differences)
+    output_norm_df = process_df("denormalize", output_df, "", max_df_vals, min_df_vals)
     torque_denorm = output_norm_df["torque"].to_numpy()
 
     return float(torque_denorm)
