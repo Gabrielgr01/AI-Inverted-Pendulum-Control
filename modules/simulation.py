@@ -595,13 +595,13 @@ def test_get_simulated_data(option):
     target = TARGET_ANGLE
     pid_gains = [PID_KP, PID_KI, PID_KD]
     t_stop = 10
-    t_samples = 100
+    t_samples = 200
     
     if option == "PID":   
-        data = get_simulated_data(input_params, target, initial_state, pid_gains, t_stop, t_samples)
+        data = get_simulated_data(input_params, target, initial_state, pid_gains, t_stop, t_samples, False)
     elif option == "NETWORK":
         model = load_model(MODEL_SAVE_PATH)
-        data = get_simulated_data_from_network(input_params, initial_state, model, t_stop, t_samples)
+        data = get_simulated_data_from_network(input_params, initial_state, model, t_stop, t_samples, False)
     
     t = data['t']
     
