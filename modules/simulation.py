@@ -10,20 +10,33 @@ import random
 
 # Local imports
 from .config import *
-from .visualization import *
 from .utils import *
 from .network import *
 
 
 ##### FUNCTIONS DEFINITION #####
 
-def get_inv_pendulum_acceleration(input_params, theta, vel, torque_control):
+def get_inv_pendulum_acceleration(input_params, theta, vel, torque_control, f_ext):
+    """
+    Function: 
+        Defines the differential equation for a inverted pendulum system.
+        Solves for acceleration.
+
+    Parameters:
+        input_params (list): Physical constants for the differential ecuation.
+        theta (float): Angle value.
+        vel (float): Velocity value.
+        torque_control (float): Control torque applied to the system.
+        f_ext (float): External force (perturbance).
+
+    Returns:
+        acc (float): Acceleration of the system.
+    """
     
     m = input_params[0]
     l = input_params[1]
     g = input_params[2]
     B = input_params[3]
-    f_ext = input_params[4]
     
     if torque_control == 0:
         acc = + f_ext*(1/m*l) - np.sin(theta)*(g/l) + vel*(B/m*l**2)
@@ -32,8 +45,23 @@ def get_inv_pendulum_acceleration(input_params, theta, vel, torque_control):
     return acc
 
 
-def get_inv_pendulum_torque(input_params, theta, vel, acc):
+def get_inv_pendulum_torque(input_params, theta, vel, acc, f_ext):
+    """
+    Function: 
+        Defines the differential equation for a inverted pendulum system.
+        Solves for torque.
 
+    Parameters:
+        input_params (list): Physical constants for the differential ecuation.
+        theta (float): Angle value.
+        vel (float): Velocity value.
+        acc (float): Acceleration value.
+        f_ext (float): External force (perturbance).
+
+    Returns:
+        torque (float): Applied control torque of the system.
+    """
+    
     m = input_params[0]
     l = input_params[1]
     g = input_params[2]
@@ -44,10 +72,10 @@ def get_inv_pendulum_torque(input_params, theta, vel, acc):
     return torque
 
 
-def get_inv_pendulum_model(S, t, input_params, torque_control):
+def get_inv_pendulum_model(S, t, input_params, torque_control, f_ext):
     """
     Function: 
-        Defines the differential equations for a inverted pendulum system.
+        Defines the differential state equations for a inverted pendulum system.
 
     Parameters:
         S (list): State vector / Initial conditions [angle 'theta', velocity 'vel'].
@@ -60,10 +88,10 @@ def get_inv_pendulum_model(S, t, input_params, torque_control):
     """
        
     theta, vel = S
-    return [vel, get_inv_pendulum_acceleration(input_params, theta, vel, torque_control)]
+    return [vel, get_inv_pendulum_acceleration(input_params, theta, vel, torque_control, f_ext)]
 
 
-def solve_inv_pendulum_model(input_params, torque_control, initial_state, t_start, t_stop, t_samples):
+def solve_inv_pendulum_model(input_params, torque_control, initial_state, t_start, t_stop, t_samples, f_ext):
     """
     Function: 
         Solves the inverted pendulum system using the given parameters.
@@ -82,12 +110,33 @@ def solve_inv_pendulum_model(input_params, torque_control, initial_state, t_star
     S_0 = initial_state
     t = np.linspace(t_start, t_stop, t_samples)
     
-    solution = odeint(get_inv_pendulum_model, y0=S_0, t=t, args=(input_params, torque_control))
+    solution = odeint(get_inv_pendulum_model, y0=S_0, t=t, args=(input_params, torque_control, f_ext))
     theta_sol = solution.T[0]
     vel_sol = solution.T[1]
-    acc_sol = get_inv_pendulum_acceleration(input_params, theta_sol, vel_sol, torque_control)
+    acc_sol = get_inv_pendulum_acceleration(input_params, theta_sol, vel_sol, torque_control, f_ext)
 
     return t, theta_sol, vel_sol, acc_sol
+
+
+def impulse(dt, current_t, t_impulse, magnitude):
+    """
+    Function:
+        Impulse function.
+
+    Parameters:
+        dt (float): Time interval for each step of the simulation.
+        current_t (float): Current simulation time.
+        t_impulse (float): Time when the impulse should appear.
+        magnitude (float): Magnitude of the impulse.
+
+    Returns:
+        _ (float): Impulse magnitude
+    """
+    
+    if abs(current_t - t_impulse) <= dt:
+        return magnitude
+    else:
+        return 0
 
 
 def pid_control(kp, ki, kd, target, inputs, prev_integral_error, prev_error, dt):
@@ -118,16 +167,32 @@ def pid_control(kp, ki, kd, target, inputs, prev_integral_error, prev_error, dt)
 
 
 def get_pid_gains(input_params, init_conditions, target = 0, t_max = 5, t_samples = 300):
-    input_params = DYNAMIC_INPUT_PARAMS
-    init_conditions = [0.2, 0.0]  # ángulo, velocidad
+    """
+    Function:
+        Plots a series of graphs with the PID behavior for several gain combinations.
+        This function is only run once for the PID calibration.
 
-    # Lista de combinaciones a probar (Kp, Ki, Kd)
+    Parameters:
+        input_params (list): Physical constants for the differential ecuation.
+        init_conditions (list): Initial 'theta' and 'vel' values.
+        target (float): Desired/Reference value.
+        t_max (float): Maximum time for simulation.
+        t_samples (int): Number of time samples.
+
+    Returns:
+        None
+    """
+    
+    input_params = DYNAMIC_INPUT_PARAMS
+    init_conditions = [0.2, 0.0]  # angle, velocity
+
+    # Gain combinations to test (Kp, Ki, Kd)
     pid_tests = [
-        (10, 0, 0),   # Proporcional puro
-        (20, 0, 5),   # Proporcional + derivativo
-        (30, 2, 8),   # PID más agresivo
-        (50, 5, 10),  # PID fuerte
-        (15, 1, 2),   # Suave
+        (10, 0, 0),   # Pure proporcional gain
+        (20, 0, 5),   # Proporcional + derivative
+        (30, 2, 8),   # Agressive PID
+        (50, 5, 10),  # Strong PID
+        (15, 1, 2),   # Soft PID
     ]
 
     for i, pid_gains in enumerate(pid_tests):
@@ -169,17 +234,19 @@ def get_pid_gains(input_params, init_conditions, target = 0, t_max = 5, t_sample
         )
 
 
-def get_simulated_data(input_params, target, init_conditions, pid_gains, t_max, t_samples):
+def get_simulated_data(input_params, target, init_conditions, pid_gains, t_max, t_samples, perturbance):
     """
     Function:
         Simulates the inverted pendulum system control (PID).
 
     Parameters:
         input_params (list): Physical constants for the differential ecuation.
-        kp, ki, kd (float): PID gains.
         target (float): Desired/Reference value.
+        init_conditions (list): Initial 'theta' and 'vel' values.
+        pid_gains (list): Gain constants for the PID controller.
         t_max (float): Maximum time for simulation.
         t_samples (int): Number of time samples.
+        perturbance (bool): Indicates the presence of a perturbance in the simulation.
 
     Returns:
         dataset (dict):
@@ -209,11 +276,20 @@ def get_simulated_data(input_params, target, init_conditions, pid_gains, t_max, 
     acc_list = []
     torque_list = []
 
+    if perturbance == True:
+        t_impulse = random.uniform(0.0, t_max/2)
+    else:
+        t_impulse = t_max + 1
+
     for i in range(t_samples):
+        t_seconds = (i/t_samples) * t_max
+        magnitude = random.uniform(-100, 100)
+        f_ext = impulse(dt, t_seconds, t_impulse, magnitude)
+        
         torque, integral_error, prev_error = pid_control(
             kp, ki, kd, target, theta, integral_error, prev_error, dt
         )
-        acc = get_inv_pendulum_acceleration(input_params, theta, vel, torque)
+        acc = get_inv_pendulum_acceleration(input_params, theta, vel, torque, 0)
 
         theta_list.append(theta)
         vel_list.append(vel)
@@ -222,22 +298,11 @@ def get_simulated_data(input_params, target, init_conditions, pid_gains, t_max, 
         
         # Solve system with small time step
         S_0 = [theta, vel]
-        #t_span = [0, dt]
-        #solution = odeint(get_inv_pendulum_model, S_0, t_span, args=(input_params, torque))
-        _, theta_sol, vel_sol, acc_sol = solve_inv_pendulum_model(input_params, torque, S_0, 0, dt, 2)
+        _, theta_sol, vel_sol, acc_sol = solve_inv_pendulum_model(input_params, torque, S_0, 0, dt, 2, f_ext)
         
         theta = theta_sol[-1]   # Gets the last calculated theta
         vel = vel_sol[-1]       # Gets the last calculated velocity
         acc = acc_sol[-1]       # Gets the last calculated acceleration
-        
-        ## Stop simulation if angle exceeds ±90°
-        #if abs(theta[i]) >= np.pi / 2:
-        #    theta = theta[:i+1]
-        #    vel = vel[:i+1]
-        #    acc = acc[:i+1]
-        #    torque = torque[:i+1]
-        #    t = t[:i+1]
-        #    break
         
     sim_data = {
         't': t,
@@ -250,7 +315,28 @@ def get_simulated_data(input_params, target, init_conditions, pid_gains, t_max, 
     return sim_data
 
 
-def get_simulated_data_from_network(input_params, init_conditions, model, t_max, t_samples):
+def get_simulated_data_from_network(input_params, init_conditions, model, t_max, t_samples, perturbance):
+    """
+    Function:
+        Simulates the inverted pendulum system control with the neural network.
+
+    Parameters:
+        input_params (list): Physical constants for the differential ecuation.
+        init_conditions (list): Initial 'theta' and 'vel' values.
+        model (model.keras): The neural network model.
+        t_max (float): Maximum time for simulation.
+        t_samples (int): Number of time samples.
+        perturbance (bool): Indicates the presence of a perturbance in the simulation.
+
+    Returns:
+        dataset (dict):
+            't': time (array)
+            'theta': angle (array)
+            'vel': angular velocity (array)
+            'acc': angular acceleration (array)
+            'torque': control torque (array)
+    """
+    
     dt = t_max / (t_samples - 1)
     t = np.linspace(0, t_max, t_samples)
 
@@ -263,11 +349,19 @@ def get_simulated_data_from_network(input_params, init_conditions, model, t_max,
     acc_list = []
     torque_list = []
 
+    if perturbance == True:
+        t_impulse = random.uniform(0.0, t_max/2)
+    else:
+        t_impulse = t_max + 1
+
     for i in range(t_samples):
+        t_seconds = (i/t_samples) * t_max
+        magnitude = random.uniform(-100, 100)
+        f_ext = impulse(dt, t_seconds, t_impulse, magnitude)
         
         # Simulate model
         torque = model_predict(model, theta, vel)
-        acc = get_inv_pendulum_acceleration(input_params, theta, vel, torque)
+        acc = get_inv_pendulum_acceleration(input_params, theta, vel, torque, 0)
 
         theta_list.append(theta)
         vel_list.append(vel)
@@ -276,20 +370,11 @@ def get_simulated_data_from_network(input_params, init_conditions, model, t_max,
         
         # Solve system with small time step
         S_0 = [theta, vel]
-        _, theta_sol, vel_sol, acc_sol = solve_inv_pendulum_model(input_params, torque, S_0, 0, dt, 2)
+        _, theta_sol, vel_sol, acc_sol = solve_inv_pendulum_model(input_params, torque, S_0, 0, dt, 2, f_ext)
         
         theta = theta_sol[-1]   # Gets the last calculated theta
         vel = vel_sol[-1]       # Gets the last calculated velocity
         acc = acc_sol[-1]       # Gets the last calculated acceleration
-        
-        ## Stop simulation if angle exceeds ±90°
-        #if abs(theta[i]) >= np.pi / 2:
-        #    theta = theta[:i+1]
-        #    vel = vel[:i+1]
-        #    acc = acc[:i+1]
-        #    torque = torque[:i+1]
-        #    t = t[:i+1]
-        #    break
         
     sim_data = {
         't': t,
@@ -310,13 +395,19 @@ def generate_dataset(n_sims, data_path, option, model=None, backup=False):
 
     Parameters:
         n_sims (int): Number of simulations.
-        backup (bool):  Whether to save or not a backup of the previous
-                        dataset before creating the new one.
+        data_path (str): Path of the directory to save the dataset.
+        option (str): 'PID' or 'NETWORK' depending on the type of 
+                      simulation to execute.
+        model (model.keras): Neural network model in case 'NETWORK'
+                             option is provided.
+        backup (bool): Whether to save or not a backup of the previous
+                       dataset before creating the new one.
 
     Retorna:
-        data_path (str): Full path where the dataset files were saved
-        df_dataset (pd.DataFrame): The dataset
+        data_path (str): Full path where the dataset files were saved.
+        norm_df_dataset (pd.DataFrame): Normalized dataset.
     """
+    
     if option == "PID":
         print("\n--> Generating Dataset ...")
     elif option == "NETWORK":
@@ -341,10 +432,12 @@ def generate_dataset(n_sims, data_path, option, model=None, backup=False):
                            random.uniform(-0.5, 0.5)    # velocity [rad/s]
                            ]
         
+        perturbance = random.choice([True, False])
+        
         if option == "PID":
-            data = get_simulated_data(input_params, target, init_conditions, pid_gains, t_stop, t_samples)
+            data = get_simulated_data(input_params, target, init_conditions, pid_gains, t_stop, t_samples, perturbance)
         elif option == "NETWORK":
-            data = get_simulated_data_from_network(input_params, init_conditions, model, t_stop, t_samples)
+            data = get_simulated_data_from_network(input_params, init_conditions, model, t_stop, t_samples, perturbance)
             
         # DataFrame generation (to save as .csv)
         df = pd.DataFrame({
@@ -397,13 +490,12 @@ def generate_dataset(n_sims, data_path, option, model=None, backup=False):
     # Variables for data normalization
     max_df_vals = df_dataset.max(axis=0) # Max of each dataset column
     min_df_vals = df_dataset.min(axis=0) # Min of each dataset column
-    df_differences = max_df_vals - min_df_vals
     
     # Saves variables for data normalization into config file
     save_norm_config(max_df_vals, min_df_vals)
     
     # Normalizes dataframe
-    norm_df_dataset = process_df("normalize", df_dataset, "", max_df_vals, min_df_vals, df_differences)
+    norm_df_dataset = process_df("normalize", df_dataset, "", max_df_vals, min_df_vals)
     
     # Saves data in .csv
     if option == "PID":
@@ -420,6 +512,17 @@ def generate_dataset(n_sims, data_path, option, model=None, backup=False):
 
 
 def load_dataset(csv_path):
+    """
+    Function:
+        Loads a saved dataset.
+
+    Parameters:
+        csv_path (str): Path of the .csv file to load.
+
+    Retorna:
+        dataset_df (pd.DataFrame): Dataset values in the form of a DataFrame.
+    """
+    
     print(f"\n--> Loading dataset from .csv file:\n{csv_path}\n")
     dataset_df = pd.read_csv(csv_path)
     return dataset_df
