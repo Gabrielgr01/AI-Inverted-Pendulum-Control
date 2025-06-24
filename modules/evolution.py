@@ -95,21 +95,33 @@ def evaluation_function(
     torque_array = dataset_df["torque"].to_numpy()
     min_torque = torque_array.min()
     max_torque = torque_array.max()
+    
+    max_df_vals, min_df_vals, df_differences = get_norm_config()
 
-    # Normalize the dataset
-    norm_dataset = normalize(dataset_df)
+    ###########################
+    ## Normalize the dataset
+    ##norm_dataset = normalize(dataset_df)
+    #norm_dataset = process_df("normalize", dataset_df, "", max_df_vals, min_df_vals, df_differences)
 
+    ## Extract angle and velocity
+    #theta_norm = norm_dataset["theta"].to_numpy()
+    #vel_norm = norm_dataset["vel"].to_numpy()
+    #######################
+    
     # Extract angle and velocity
-    theta_norm = norm_dataset["theta"].to_numpy()
-    vel_norm = norm_dataset["vel"].to_numpy()
+    theta_norm = dataset_df["theta"].to_numpy()
+    vel_norm = dataset_df["vel"].to_numpy()
 
     # Predict torque with the neural network
     model_input = np.column_stack((theta_norm, vel_norm))
     norm_network_torque = model.predict(model_input)
 
     # Denormalize the torque
-    network_torque = norm_network_torque * (max_torque - min_torque) + min_torque
-
+    #old_network_torque = norm_network_torque * (max_torque - min_torque) + min_torque
+    norm_net_torque_df = pd.DataFrame(norm_network_torque, columns=["torque"])
+    norm_dataset = process_df("denormalize", norm_net_torque_df, "", max_df_vals, min_df_vals, df_differences)
+    network_torque = norm_dataset["torque"]
+    
     # Calculate the fitness of the individual
     fitness = np.mean((np.array(torque_array) - np.array(network_torque)) ** 2)
 
@@ -166,10 +178,9 @@ def run_evolutionary_algorithm(net_model, dataset_df):
     toolbox.register("evaluate", partial(evaluation_function, model=net_model, dataset_df=dataset_df))
     # Evolution operators
     toolbox.register("select", tools.selTournament, tournsize=2)
+    #toolbox.register("mate", tools.cxSimulatedBinaryBounded, eta=10, low=GENE_RANGE[0], up=GENE_RANGE[1])
     toolbox.register("mate", tools.cxBlend, alpha=ALPHA)
-    toolbox.register(
-        "mutate", tools.mutGaussian, mu=MU, sigma=SIGMA, indpb=0.2
-    )
+    toolbox.register("mutate", tools.mutGaussian, mu=MU, sigma=SIGMA, indpb=0.2)
 
     if DEBUG == True:
         # Test for the population and individuals generation
@@ -208,7 +219,7 @@ def run_evolutionary_algorithm(net_model, dataset_df):
     
     # View last generation summary
     print()
-    print()
+    print("Last generation: ")
     print(log_df.tail(1))
     print("")
 
