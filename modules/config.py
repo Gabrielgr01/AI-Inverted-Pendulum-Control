@@ -30,7 +30,7 @@ MIN_CONFIG_SAVE_NAME = "min_config.csv"
 MIN_CONFIG_SAVE_PATH = os.path.join(RESULTS_DIR_PATH, MIN_CONFIG_SAVE_NAME)
 MODEL_CONFIG_PATH_LIST = [MAX_CONFIG_SAVE_PATH, MIN_CONFIG_SAVE_PATH]
 
-SIM_T_STOP = 10
+SIM_T_STOP = 20
 SIM_T_SAMPLES = SIM_T_STOP * 100
 
 VERBOSE = False
@@ -43,8 +43,7 @@ TARGET_ANGLE = 0    # [rad] Target angle for the pendulum control
 DYNAMIC_INPUT_PARAMS = [1.0,    # mass [kg]
                         1.0,    # length [m]
                         9.81,   # gravity [m/s^2]
-                        0.1,    # friction coefficient
-                        0.0     # external force (perturbation) [N]
+                        0.1     # friction coefficient
                         ]
 
 
@@ -53,7 +52,7 @@ DYNAMIC_INPUT_PARAMS = [1.0,    # mass [kg]
 # Neural Network
 NUM_INPUT_NEURONS = 2   # Number of neurons of the input layer
 NUM_OUTPUT_NEURONS = 1  # Number of neurons of the output put layer
-NUM_HIDDEN_NEURONS = [6,] # List of neurons of each hidden layer. 
+NUM_HIDDEN_NEURONS = [5,] # List of neurons of each hidden layer. 
                           # Example: [5, 5] represents two hidden 
                           # layers of 5 neurons each.
 INPUT_ACT_FUNCTION = "tanh"
