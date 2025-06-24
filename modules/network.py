@@ -97,6 +97,18 @@ def build_model(
 
 
 def set_model_weights(model, weights):
+    """
+    Function:
+        Sets the model with the input weights.
+    
+    Parameters:
+        model (model.keras): Neural network model.
+        weights (list): Desired weights for the neural network.
+    
+    Returns:
+        model (model.keras): Neural network model with the assigned weights.
+    """
+    
     shapes = get_model_shapes(
         NUM_INPUT_NEURONS,
         NUM_HIDDEN_NEURONS,
@@ -117,15 +129,18 @@ def set_model_weights(model, weights):
 
 def model_predict(model, theta, vel):
     """
-    Retorna el torque calculado por la red neuronal entrenada.
+    Function:
+        Predicts the control torque using the provided neural network
+        model.
     
-    Parámetros:
-        model: Red neuronal entrenada (por ejemplo, un modelo de TensorFlow/Keras).
-        theta (float): Ángulo actual del péndulo (en radianes).
-        vel (float): Velocidad angular actual del péndulo (rad/s).
+    Parameters:
+        model (model.keras): Neural network model.
+        theta (float): Angle value.
+        vel (float): Velocity value.
     
-    Retorna:
-        torque (float): Valor del torque de control calculado por la red.
+    Returns:
+        torque_denorm (float): Denormalized predicted control torque by 
+        the neural network.
     """
     
     max_df_vals, min_df_vals = get_norm_config()
@@ -149,6 +164,18 @@ def model_predict(model, theta, vel):
 
 
 def save_model(model, model_save_path):
+    """
+    Function:
+        Saves the model in the provided directory.
+    
+    Parameters:
+        model (model.keras): Neural network model.
+        model_save_path (str): Directory path to save the model.
+    
+    Returns:
+        None
+    """
+    
     print ("\n--> Saving model ...\n")
     
     model.save(model_save_path)
@@ -157,10 +184,21 @@ def save_model(model, model_save_path):
     print(model_save_path, "\n")
 
 
-def load_model(MODEL_SAVE_PATH):
+def load_model(model_save_path):
+    """
+    Function:
+        Loads the model from the provided directory.
+    
+    Parameters:
+        model_save_path (str): Directory path from which to load the model.
+    
+    Returns:
+        model (model.keras): Neural network model.
+    """
+    
     print ("\n--> Loading model...\n")
-    model = keras_load_model(MODEL_SAVE_PATH)
-    print(f"Loaded model from:\n{MODEL_SAVE_PATH}\n")
+    model = keras_load_model(model_save_path)
+    print(f"Loaded model from:\n{model_save_path}\n")
     return model
     
 
