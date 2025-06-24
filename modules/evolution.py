@@ -6,81 +6,37 @@ import numpy as np
 from deap import creator, base, tools, algorithms
 import random
 import pandas as pd
-import matplotlib.pyplot as plt
 from functools import partial
 
 # Local imports
 from .config import *
+from .utils import *
 from .network import *
 from .simulation import *
-from .visualization import *
 
 
 ##### FUNCTIONS DEFINITION #####
 
 toolbox = base.Toolbox()
 
-### Not used
-def count_weights(
-        num_input_neurons,
-        num_hidden_neurons,
-        num_output_neurons
-        ):
-    """
-    Function:
-        Finds the total number of chromosomes.
-
-    Parameters:
-        NUM_HIDDEN_NEURONS (list): Number of neurons of the dense layer.
-        NUM_INPUT_NEURONS (int): Number of neurons of the input layer.
-        NUM_OUTPUT_NEURONS (int): Number of neurons of the output layer.
-
-    Returns:
-        total_weights (int): Total number of weights, which represents the
-                             total number of chromosomes.
-    """
-    layer_sizes = [num_input_neurons] + num_hidden_neurons + [num_output_neurons]
-    total_weights = 0
-
-    for i in range(len(layer_sizes) - 1):
-        w = layer_sizes[i] * layer_sizes[i + 1]  # pesos entre capas
-        b = layer_sizes[i + 1]                   # bias en capa siguiente
-        total_weights += w + b
-
-    return total_weights
-###
 
 def get_model_num_weights(net_model):
+    """
+    Function:
+        Sums the total number of weights and biases of the neural network.
+
+    Parameters:
+        net_model (model.keras): Neural network model.
+
+    Returns:
+        total_weights_num (int): Total number of weights and biases.
+    """
+    
     weights = net_model.get_weights()
     total_weights_num = 0
     for weight in weights:
         total_weights_num += weight.size
-        #print("size: ", weight.size)
     return total_weights_num
-
-
-def normalize(df):
-    """
-    Function:
-        Normalize numeric columns in a pandas DataFrame to range [0, 1].
-
-    Parameters:
-        df (pd.DataFrame): Input DataFrame.
-
-    Returns:
-        normalized_df (pd.DataFrame): A new DataFrame with normalized numeric columns.
-    """
-    normalized_df = df.copy()
-
-    for column in df.select_dtypes(include=[np.number]).columns:
-        min_val = df[column].min()
-        max_val = df[column].max()
-        if max_val - min_val != 0:
-            normalized_df[column] = (df[column] - min_val) / (max_val - min_val)
-        else:
-            normalized_df[column] = 0.0  # all values are the same
-
-    return normalized_df
 
 
 def evaluation_function(
@@ -89,24 +45,25 @@ def evaluation_function(
         dataset_df
         ):
 
+    """
+    Function:
+        Evaluation function used to set the fitness of an individual.
+
+    Parameters:
+        individual (list): Defined with the neural network possible weights.
+        model (model.keras): Neural network model.
+        dataset_df (pd.DataFrame): The dataset to which compare the model prediction.
+
+    Returns:
+        fitness (array): Fitness value of the individual.
+    """
+
     # Sets the model with the weights defined by the individual
     set_model_weights(model, individual)
 
     torque_array = dataset_df["torque"].to_numpy()
-    min_torque = torque_array.min()
-    max_torque = torque_array.max()
     
-    max_df_vals, min_df_vals, df_differences = get_norm_config()
-
-    ###########################
-    ## Normalize the dataset
-    ##norm_dataset = normalize(dataset_df)
-    #norm_dataset = process_df("normalize", dataset_df, "", max_df_vals, min_df_vals, df_differences)
-
-    ## Extract angle and velocity
-    #theta_norm = norm_dataset["theta"].to_numpy()
-    #vel_norm = norm_dataset["vel"].to_numpy()
-    #######################
+    max_df_vals, min_df_vals = get_norm_config()
     
     # Extract angle and velocity
     theta_norm = dataset_df["theta"].to_numpy()
@@ -117,9 +74,8 @@ def evaluation_function(
     norm_network_torque = model.predict(model_input)
 
     # Denormalize the torque
-    #old_network_torque = norm_network_torque * (max_torque - min_torque) + min_torque
     norm_net_torque_df = pd.DataFrame(norm_network_torque, columns=["torque"])
-    norm_dataset = process_df("denormalize", norm_net_torque_df, "", max_df_vals, min_df_vals, df_differences)
+    norm_dataset = process_df("denormalize", norm_net_torque_df, "", max_df_vals, min_df_vals)
     network_torque = norm_dataset["torque"]
     
     # Calculate the fitness of the individual
@@ -178,7 +134,6 @@ def run_evolutionary_algorithm(net_model, dataset_df):
     toolbox.register("evaluate", partial(evaluation_function, model=net_model, dataset_df=dataset_df))
     # Evolution operators
     toolbox.register("select", tools.selTournament, tournsize=2)
-    #toolbox.register("mate", tools.cxSimulatedBinaryBounded, eta=10, low=GENE_RANGE[0], up=GENE_RANGE[1])
     toolbox.register("mate", tools.cxBlend, alpha=ALPHA)
     toolbox.register("mutate", tools.mutGaussian, mu=MU, sigma=SIGMA, indpb=0.2)
 
@@ -191,7 +146,7 @@ def run_evolutionary_algorithm(net_model, dataset_df):
 
     # Statistics on the general fitness of the population
     stats = tools.Statistics(lambda ind: ind.fitness.values)
-    stats.register("avg", np.mean)  # Generation 'Average'
+    stats.register("avg", np.mean) # Generation 'Average'
     stats.register("std", np.std)  # Individuals 'Standard Deviation'
     stats.register("min", np.min)  # 'Min Fitness' of the generation
     stats.register("max", np.max)  # 'Max Fitness' of the generation
@@ -236,7 +191,7 @@ def run_evolutionary_algorithm(net_model, dataset_df):
         show_plot = True,
         graph_title = "Fitness over Generations",
         image_name = "evolution_fitness",
-        image_path = RUN_AREA
+        image_path = RESULTS_DIR_PATH
     )
 
     return best_ind, best_ind_fitness
