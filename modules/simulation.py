@@ -166,7 +166,7 @@ def pid_control(kp, ki, kd, target, inputs, prev_integral_error, prev_error, dt)
     return output, integral_error, error
 
 
-def get_pid_gains(input_params, init_conditions, target = 0, t_max = 5, t_samples = 300):
+def get_pid_gains(input_params, init_conditions, target = 0, t_max = 5, t_samples = 501):
     """
     Function:
         Plots a series of graphs with the PID behavior for several gain combinations.
