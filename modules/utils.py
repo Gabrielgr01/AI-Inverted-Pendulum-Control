@@ -45,7 +45,40 @@ def create_directory(full_path, backup=False, overwrite=True):
                 os.makedirs(full_path)
         else:
             os.makedirs(full_path)
-  
+
+
+def print_files_tree():
+    print("""
+Program File Tree:
+C:.
+|   main.py
+|   
+|
+|-- data
+|       dataset.csv
+|       inv_pen_sim_1.png
+|       inv_pen_sim_2.png
+|       ...
+|
+|-- modules
+|       config.py
+|       evolution.py
+|       network.py
+|       simulation.py
+|       utils.py
+|       __init__.py
+|
+|-- results
+        evolution_fitness.png
+        inv_pen_sim_1.png
+        inv_pen_sim_2.png
+        ...
+        max_config.csv
+        min_config.csv
+        model.keras
+        network_sim.csv
+    """)
+
 
 def print_files_tree_short():
     """
